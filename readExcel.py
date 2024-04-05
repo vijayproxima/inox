@@ -1,7 +1,7 @@
 import pandas as pd
 import psycopg2
 import os
-
+#from getLatLong import get_lat_long
 
 DBNAME=os.environ["DBNAME"]
 DBPWD=os.environ["DBPWD"]
@@ -39,14 +39,22 @@ import re
 # pick the pin, state, city from the 'Premises address and store them in 
 # 3 new columns - pin, state, city respectively
 
-df.drop(columns=['Old License No','Corespondance Address'],inplace=True,axis=1)
+customer_name = df['Corespondance Address'].str.split('\n')
+customer_name = customer_name.str[0].str.strip()
+df['Customer_name'] = customer_name
+
 split_address = df['Premises Address'].str.split(',')
 city = split_address.str[-3].str.strip()
 state = split_address.str[-2].str.strip()
 pin = split_address.str[-1].str.extract(r'Pin\s*:\s*(\d+)')
+
 df['City'] = city
 df['State'] = state
 df['Pin'] = pin
+#df['latitude'],df['longitude'] = get_lat_long(str(pin))
+
+df.drop(columns=['Old License No','Corespondance Address'],inplace=True,axis=1)
+
 print(df.columns)
 
 first_row = df.iloc[0]
@@ -81,7 +89,7 @@ df.head(10)
 df =df_final.drop('Capacity with Product', axis=1)
 df.to_csv('data/output.csv')
 
-df.columns
+# df.columns
 # Connect to PostgreSQL
 conn = psycopg2.connect(
     dbname=DBNAME,
@@ -91,14 +99,17 @@ conn = psycopg2.connect(
     port=DBPORT
 )
 
-# Create a cursor
+#Create a cursor
 cur = conn.cursor()
 
 # Iterate over each row in the DataFrame and insert into the database
 for index, row in df.iterrows():
+    address = re.sub(r'\s+', ' ', row['Premises Address']).strip()
+    # Update the address in the DataFrame
+    df.at[index, 'Premises Address'] = address
     cur.execute(
-        "INSERT INTO inox_customers (new_licence_no, premises_address, grant_date, expiry_date, city, state, pin, product_name, capacity) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-        (row['New License No'], row['Premises Address'], row['Grant Date'], row['Expiry Date'], row['City'], row['State'], row['Pin'], row['Product'], row['Capacity'])
+        "INSERT INTO inox_customers (new_licence_no, premises_address,customer_name, grant_date, expiry_date, city, state, pin, product_name, capacity) VALUES (%s, %s,%s, %s, %s, %s, %s, %s, %s, %s)",
+        (row['New License No'], row['Premises Address'], row['Customer_name'], row['Grant Date'], row['Expiry Date'], row['City'], row['State'], row['Pin'], row['Product'], row['Capacity'])
     )
 
 # Commit the changes and close the connection
