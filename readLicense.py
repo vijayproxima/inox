@@ -104,11 +104,17 @@ cur = conn.cursor()
 
 # Iterate over each row in the DataFrame and insert into the database
 for index, row in df.iterrows():
+    cur.execute("SELECT COUNT(*) FROM inox_customers_license WHERE new_licence_no = %s", (row['New License No'],))
+    count = cur.fetchone()[0]
+    
+    # If the count is greater than 0, skip inserting the record
+    if count > 0:
+        continue
     address = re.sub(r'\s+', ' ', row['Premises Address']).strip()
     # Update the address in the DataFrame
     df.at[index, 'Premises Address'] = address
     cur.execute(
-        "INSERT INTO inox_customers (new_licence_no, premises_address,customer_name, grant_date, expiry_date, city, state, pin, product_name, capacity) VALUES (%s, %s,%s, %s, %s, %s, %s, %s, %s, %s)",
+        "INSERT INTO inox_customers_license (new_licence_no, premises_address,customer_name, grant_date, expiry_date, city, state, pin, product_name, capacity) VALUES (%s, %s,%s, %s, %s, %s, %s, %s, %s, %s)",
         (row['New License No'], row['Premises Address'], row['Customer_name'], row['Grant Date'], row['Expiry Date'], row['City'], row['State'], row['Pin'], row['Product'], row['Capacity'])
     )
 
