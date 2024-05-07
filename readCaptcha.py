@@ -5,6 +5,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 import re
 import numpy as np
+from PIL import Image, ImageOps
 # Path to the Tesseract executable (update with your Tesseract installation path)
 tesseract_dir = '/usr/bin/'
 tesseract_executable = 'tesseract'
@@ -27,6 +28,12 @@ captcha_element.screenshot(screenshot_path)
 
 # Read the CAPTCHA image using OpenCV
 captcha_image = cv2.imread(screenshot_path)
+
+image=Image.open(screenshot_path)
+threshold_value = 143
+image=image.point(lambda x:0 if x < threshold_value else 255)
+borederImage=ImageOps.expand(image,border=30,fill="white")
+borederImage.save(screenshot_path)
 
 # Preprocess the image (resize, grayscale, thresholding)
 captcha_image = cv2.resize(captcha_image, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)

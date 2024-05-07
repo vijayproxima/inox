@@ -3,8 +3,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
-from PIL import Image
+from PIL import Image, ImageOps
 import pytesseract
+import subprocess
 
 # Initialize Selenium WebDriver
 driver = webdriver.Chrome()
@@ -27,11 +28,32 @@ time.sleep(5)
 screenshot_path = "captcha.png"  # Adjust the path and filename as needed
 captcha_element.screenshot(screenshot_path)
 
-# Use OCR to recognize the CAPTCHA text
-captcha_text = pytesseract.image_to_string(Image.open(screenshot_path))
+image=Image.open(screenshot_path)
+threshold_value = 143
+image=image.point(lambda x:0 if x < threshold_value else 255)
+borederImage=ImageOps.expand(image,border=30,fill="white")
+borederImage.save(screenshot_path)
 
+
+# Use OCR to recognize the CAPTCHA text
+#captcha_text = pytesseract.image_to_string(Image.open(screenshot_path))
+
+p=subprocess.Popen(['tesseract','captcha.png',"captcha"],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+p.wait()
+f=open('captcha.txt','r')
+captchaResponse=f.read().replace(" ","").replace("\n","")
+print("captcha responce attempt "+ captchaResponse+"\n\n")
+try:
+    print (captchaResponse)
+    print (len(captchaResponse))
+    print (type(captchaResponse))
+except:  # noqa: E722
+    print ("No way")
+    
 # Print the CAPTCHA text for verification
-print("CAPTCHA Text:", captcha_text)
+#print("CAPTCHA Text:", captcha_text)
+
+
 
 # Close the browser
 driver.quit()

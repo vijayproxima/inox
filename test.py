@@ -1,15 +1,10 @@
 import streamlit as st
 import pandas as pd
 import psycopg2
-from psycopg2 import Error
 import pandas as pd
-import psycopg2
 import os
-#from getLatLong import get_lat_long
 import re
 from datetime import datetime
-import math
-import numpy as np
 
 DBNAME=os.environ["DBNAME"]
 DBPWD=os.environ["DBPWD"]
@@ -20,16 +15,15 @@ DBHOST=os.environ["DBHOST"]
 # Function to update database with data from Excel file
 def update_database(file_path):
 
-
+    
     # foe xlsx files, need to install openpyxl
     df = pd.read_excel(file_path, header=None, skiprows=3, usecols="A,C, D, E,F,G,M")
 
-    df.shape[0] # get number of records
+    #df.shape[0] # get number of records
 
     if df.iloc[1].isnull().all():
         df = df.drop(1)
         
-
     # Rename the columns based on the third row
     df.columns = df.iloc[0]
 
@@ -42,10 +36,6 @@ def update_database(file_path):
                 'Corespondance Address','Premises Address', 
                 'Capacity with Product','Approval Date']
 
-    #df.columns
-    #df.head(3)
-
-
     # pick the pin, state, city from the 'Premises address and store them in 
     # 3 new columns - pin, state, city respectively
 
@@ -54,6 +44,7 @@ def update_database(file_path):
     df['Customer_name'] = customer_name
 
     # Define a regex pattern to match the pin
+    
     pin_pattern = r'Pin\s*:\s*(\d+)'
 
     # Preprocess the Premises Address column
@@ -72,19 +63,13 @@ def update_database(file_path):
 
     # Now split the cleaned Premises Address column into city and state
     split_address = df['Premises Address'].str.split(',')
-    city = split_address.str[-2].str.strip()
-    state = split_address.str[-3].str.strip()
+    city = split_address.str[-3].str.strip()
+    state = split_address.str[-2].str.strip()
 
     df['City'] = city
     df['State'] = state
 
-    #df['latitude'],df['longitude'] = get_lat_long(str(pin))
-
     df.drop(columns=['Old License No','Corespondance Address'],inplace=True,axis=1)
-
-    #print(df.columns)
-
-    #first_row = df.iloc[0]
 
     # Create lists to store product and capacity values
     df_final = pd.DataFrame()
@@ -120,19 +105,11 @@ def update_database(file_path):
                 print(f"Error: Unable to unpack item '{row['Capacity with Product']}'")
                 continue
 
-
-    # Display the DataFrame
-    #print(df_final)
-    #rows_with_blank_date = df[df['Approval Date'].isna()]
     df_final.dropna(subset=['Approval Date'], inplace=True)
 
-    #df_final.head(5)
-    #df_final.shape[0]
-    #df.head(2)
     df =df_final.drop('Capacity with Product', axis=1)
     df.to_csv('data/output_approvals.csv')
-    #df.shape[0]
-    # df.columns
+
     # Connect to PostgreSQL
     conn = psycopg2.connect(
         dbname=DBNAME,
@@ -191,9 +168,8 @@ def fetch_records():
         port=DBPORT
     )
     cur = conn.cursor()
-    cur.execute("SELECT approval_no, customer_name, approval_date, city, state, pin, product_name, capacity FROM inox_customers_approvals LIMIT 5")
+    cur.execute("SELECT approval_no, customer_name, approval_date, city, state, pin, product_name, capacity FROM inox_customers_approvals LIMIT 3")
     records = cur.fetchall()
-    #st.write("records retrieved")
     columns = [desc[0] for desc in cur.description]  # Get column names
     df_temp = pd.DataFrame(records, columns=columns)  # Convert to DataFrame
     cur.close()
@@ -203,7 +179,7 @@ def fetch_records():
 
 # Function to update a specific customer record
 def update_customer(record):
-    st.markdown("<h2 style='text-align: center;color: blue;'>Update New Customer</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;color: blue;'>Update New Customers</h2>", unsafe_allow_html=True)
     st.markdown("---")
     col1, col2 = st.columns(2)
     
@@ -213,7 +189,7 @@ def update_customer(record):
         approval_no = st.text_input("Approval No", max_chars=50, value=record['approval_no'])
         rtkm = st.number_input("Round Trip KM", step=1.0)
         inox_ap_concern_region = st.selectbox("Inox AP Concern Region", ["East", "North", "MP", "Gujarat"])
-        known_to_inoxap = st.selectbox("Known to InoxAP", ["Yes", "No"])
+        known_to_inoxap = st.selectbox("Known to InoxAP", ["Yes", "No"],help="Specify if the customer is known to InoxAP")
         site_condition = st.selectbox("Site Condition", ["VIST Foundation Ready", "VIST Foundation Not Ready", "VIST Already Installed"])    
     with col2:
         #st.subheader("Additional Information")
@@ -222,16 +198,12 @@ def update_customer(record):
         type_of_customer = st.selectbox("Type of Customer", ["Gas Manufacturing Company", "Onsite Customer", "Bulk Liquid Consumer"])
         project_type = st.selectbox("Project Type", ["Green Field", "Brown Field"])
         estimated_volume = st.number_input("Estimated Volume (In Sm3/Month)", step=1.0)
-        site_photo = st.file_uploader("Site Photographs (Upload image [size < 1 MB])", type=["jpg", "jpeg", "png"])
+        site_photo = st.file_uploader("Site Photographs", type=["jpg", "jpeg", "png"],help="(Upload image [size < 1 MB])")
     
     reason_for_loss = st.text_area("Reason for Business Loss to InoxAP")
     
     # Remarks with date
     remarks = st.text_area("Remarks")
-    
-    # if st.button("Add Remark"):
-    #     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    #     remarks += f"\n{current_time}: {remarks}"
     
     col1, col2 = st.columns(2)
     with col1:
@@ -293,13 +265,7 @@ def main():
 # Define your logo URL
     logo_url = "images/inoxair.png"
 
-    # Define the HTML and CSS to display the logo
-    # logo_html = f"""
-    #     <div style="position: absolute; top: 5px; right: 5px;">
-    #         <img src="{logo_url}" style="width: 50px;">
-    #     </div>
-    # """
-    # Display the logo using st.image
+
     st.image(logo_url, width=100)
 
 # Add a little padding to separate the logo from other content
@@ -310,7 +276,7 @@ def main():
     st.markdown("<h2 style='text-align: center;color: blue;'>Inox Customer Management</h2>", unsafe_allow_html=True)
     st.markdown("---")
     # Page selection
-    page = st.sidebar.selectbox("Select Page", ["Upload", "Get Customer Data"])
+    page = st.sidebar.selectbox("Select Feature", ["Upload", "Get Customer Data"])
 
     if page == "Upload":
         #st.markdown("<h3 style='text-align: left;'>Upload Excel File</h3>", unsafe_allow_html=True)
@@ -323,18 +289,29 @@ def main():
             #st.write("data INSERTED")
 
     elif page == "Get Customer Data":
-        st.header("Customer Records")
+        st.header("Customer Details")
         records = fetch_records()
-        #print(records)
-        for index, record in records.iterrows():
-            st.write(f"Record {index+1}")
-            st.write(record)
-            if st.button(f"Update Record {index+1}"):
-                update_customer(record)
-        #st.table(records)
 
-        # Display update link for each record
-        #for index, record in records.iterrows():
+        # Create a new column for buttons
+        #records['Action'] = [''] * len(records)
+        records['Action'] = ["" for _ in range(len(records))]
+        
+        #st.dataframe(records)
+
+        # Populate the 'Action' column with buttons
+        for index, record in records.iterrows():
+            records.at[index, 'Action'] = st.button(f"Update Record {index+1}")
+            st.write(record)  # Display the record along with the button
+        
+        if record['Action']:
+            update_customer(record)
+        # Display the DataFrame with buttons
+        
+        
+        # # Handle button clicks
+        # for index, record in records.iterrows():
+        #     if record['Action']:
+        #         update_customer(record)
    
 
 if __name__ == "__main__":
